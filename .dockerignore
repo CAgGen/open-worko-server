@@ -1,0 +1,8 @@
+node_modules
+dashboard/node_modules
+dashboard/dist
+worko.db
+worko.db-shm
+worko.db-wal
+.env
+.git
