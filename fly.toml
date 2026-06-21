@@ -1,29 +1,30 @@
-# worko-server on Fly.io
-# ponytail: 有状态单文件 hub —— 永远 1 台机器，别开自动扩。要扩先换 Postgres。
-app = "worko-server"          # 全局唯一，被占了就改个名（fly launch 也会提示）
-primary_region = "sin"        # 新加坡，离你近；可换 hkg/nrt/iad
+# fly.toml app configuration file generated for open-worko-server on 2026-06-21T17:11:32Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'open-worko-server'
+primary_region = 'ams'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "8080"
-  DB_PATH = "/data/worko.db"
-  PUBLIC_DIR = "/app/dashboard/dist"
+  DB_PATH = '/data/worko.db'
+  PORT = '8080'
+  PUBLIC_DIR = '/app/dashboard/dist'
 
-# SQLite 落在卷上；卷绑单机，所以实例数必须=1
-[mounts]
-  source = "worko_data"
-  destination = "/data"
+[[mounts]]
+  source = 'worko_data'
+  destination = '/data'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = false   # WS 长连接 + wake 推送，别让它睡
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
-  max_machines_running = 1     # 硬上限 1，防手贱扩成多实例撕裂 SQLite
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
