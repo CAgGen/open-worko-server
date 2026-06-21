@@ -1,0 +1,10 @@
+{
+  "name": "worko-server",
+  "version": "0.1.0",
+  "type": "module",
+  "module": "server.ts",
+  "private": true,
+  "scripts": {
+    "server": "bun run server.ts"
+  }
+}
