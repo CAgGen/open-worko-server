@@ -1,9 +1,10 @@
+# fly.toml app configuration file generated for open-worko-server2 on 2026-06-21T21:48:31Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'open-worko-server'
-primary_region = 'ams'
+app = 'open-worko-server2'
+primary_region = 'fra'
 
 [build]
   dockerfile = 'Dockerfile'
