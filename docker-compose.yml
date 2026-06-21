@@ -6,13 +6,15 @@ services:
       dockerfile: Dockerfile
     container_name: worko-server
     ports:
-      - "8080:8080"          # HTTP + WebSocket 同口，绑 0.0.0.0 → 别的机器能连
+      - "8080:8080"
     volumes:
-      - worko-data:/data     # SQLite 持久化
+      - worko-data:/data
+      - ./dashboard/dist:/app/dashboard/dist:ro   # 挂载构建好的 dashboard
     environment:
       - PORT=8080
       - DB_PATH=/data/worko.db
-      - WORKO_TOKEN=${WORKO_TOKEN:-dev-secret}   # 一上公网必须设；从 .env 读
+      - WORKO_ADMIN_TOKEN=${WORKO_ADMIN_TOKEN:-change-me}   # 必须改！
+      - PUBLIC_DIR=/app/dashboard/dist
     restart: unless-stopped
 
 volumes:
