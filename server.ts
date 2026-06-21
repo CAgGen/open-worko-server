@@ -147,14 +147,27 @@ const server = Bun.serve({
     // health 完全放行（docker healthcheck，不计限流/封禁）
     if (url.pathname === "/health") return Response.json({ ok: true });
 
-    // Phase A: 封禁中直接拒；再按路径限流
+    // Phase A: 封禁中直接拒（防爆破，静态资源也一并拦在外）
     const ip = clientIP(req, server);
     if (isBanned(ip)) return new Response("too many requests", { status: 429 });
+
+    const isApiPath = ["/messages", "/context", "/agents", "/inbox", "/threads", "/rooms"].some(p => url.pathname.startsWith(p));
+    const isWsUpgrade = req.headers.get("upgrade") === "websocket";
+
+    // 静态文件（dashboard 的 html/js/css）：公开文件，放在限流之前——浏览器加载一次页面会拉一堆
+    // 资源 + 轮询，不该和 API 共用 120/min 额度，否则一刷就 429。封禁(上面)仍拦得住爆破，
+    // API/鉴权/admin 该限照限，不影响安全。
+    // ponytail: 纯静态被刷不碰数据；真要防静态 DoS 再给它单独一个宽松桶。
+    if (req.method === "GET" && !isWsUpgrade && !isApiPath && !url.pathname.startsWith("/admin")) {
+      return serveStatic(url.pathname);
+    }
+
+    // 按路径限流（API 120/min，admin 30/min）
     const limit = url.pathname.startsWith("/admin") ? 30 : 120;
     if (!rateLimit(ip, limit, 60_000)) return new Response("rate limited", { status: 429 });
 
     // WebSocket 升级
-    if (req.headers.get("upgrade") === "websocket") {
+    if (isWsUpgrade) {
       const token = url.searchParams.get("token") ?? "";
       const id = url.searchParams.get("id") ?? "";
       const role = url.searchParams.get("role") ?? "";
@@ -186,11 +199,7 @@ const server = Bun.serve({
       return handleAdmin(req, url, server);
     }
 
-    // 静态文件（dashboard）
-    const isApiPath = ["/messages", "/context", "/agents", "/inbox", "/threads", "/rooms"].some(p => url.pathname.startsWith(p));
-    if (req.method === "GET" && !isApiPath) return serveStatic(url.pathname);
-
-    // 成员端点
+    // 成员端点（静态文件已在限流前处理；GET API 落到下面各自的鉴权）
     const auth = authenticate(req);
     if (!auth) { recordAuthFail(ip); return new Response("unauthorized", { status: 401 }); }
     clearAuthFail(ip);
