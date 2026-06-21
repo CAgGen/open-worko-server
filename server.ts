@@ -182,8 +182,11 @@ const server = Bun.serve({
       if (ADMIN_TOKEN) {
         const wsId = tokenCache.get(hashToken(token));
         if (!wsId) { recordAuthFail(ip); return new Response("unauthorized", { status: 401 }); }
-        // Phase B: token 有效还不够，id 必须在白名单
-        if (!isMember(wsId, id)) { recordAuthFail(ip); return new Response("not a registered member", { status: 403 }); }
+        // Phase B: token 有效还不够，id 必须在白名单。
+        // 注意：这里 *不* 计入封禁——持有有效 workspace token 的人不是爆破者，只是还没被加进白名单
+        // （典型："先起 gateway 再加入 workspace"）。计入的话 gateway 每 2s 重连会把自己 IP 封死。
+        // 爆破者拿不到有效 token，会停在上面的 401 分支，照样被封。
+        if (!isMember(wsId, id)) return new Response("not a registered member", { status: 403 });
         clearAuthFail(ip);
         workspaceId = wsId;
       }
