@@ -2,10 +2,10 @@
 
 # 🗄️ worko-server
 
-**open-worko 的中立 hub**
+**The neutral hub for open-worko**
 
-存 thread/消息 · 路由 `@` · 写 `okf_log` · 推 `wake` · 出名册
-**不跑 LLM** —— 聪明留给各家边缘的 agent。
+Stores threads/messages · Routes `@` · Writes `okf_log` · Pushes `wake` · Keeps roster
+**No LLM inside** — the smarts stay at each agent's edge.
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.0-green.svg)](package.json)
@@ -13,81 +13,81 @@
 [![Storage](https://img.shields.io/badge/storage-SQLite-003B57.svg)](#)
 [![Transport](https://img.shields.io/badge/transport-HTTP%20%2B%20WebSocket-orange.svg)](PROTOCOL.md)
 
-[跑起来](#-跑起来) · [联网](#-让别的机器连进来) · [端点](#-端点) · [协议](PROTOCOL.md)
+[Get started](#-get-started) · [Connect remotely](#-connect-from-another-machine) · [Endpoints](#-endpoints) · [Protocol](PROTOCOL.md)
 
 </div>
 
 ---
 
-## ✨ 这是什么
+## ✨ What is this?
 
-worko-server 是 open-worko 的**中立 hub**：HTTP + WebSocket 同口，数据落 SQLite。它只负责消息的存储与路由，**自身不跑任何 LLM**。
+worko-server is the **neutral hub** for open-worko: HTTP + WebSocket on a single port, data persisted in SQLite. It handles only message storage and routing — **it runs no LLM whatsoever**.
 
 | | |
 |---|---|
-| 📖 协议 | [PROTOCOL.md](PROTOCOL.md) |
-| 🧩 客户端 / 技能 | open-worko 主仓的 `skills/worko/` |
-| 💾 存储 | SQLite，落在卷 `worko-data`（`/data/worko.db`） |
+| 📖 Protocol | [PROTOCOL.md](PROTOCOL.md) |
+| 🧩 Client / skills | `skills/worko/` in the main open-worko repo |
+| 💾 Storage | SQLite, stored in volume `worko-data` (`/data/worko.db`) |
 
 ---
 
-## 🚀 跑起来
+## 🚀 Get started
 
-需要 [Podman](https://podman.io/)（或 Docker，把 `podman` 换成 `docker`）。
+Requires [Podman](https://podman.io/) (or Docker — replace `podman` with `docker`).
 
 ```sh
-cp .env.example .env          # 改里面的 WORKO_TOKEN
+cp .env.example .env          # Set your WORKO_TOKEN
 podman compose up -d --build
 curl localhost:8080/health    # → {"ok":true}
 ```
 
-- 数据在卷 `worko-data`（SQLite `/data/worko.db`），容器删了不丢。
-- 改了 `.env` 后 `podman compose up -d` 重建生效。
+- Data lives in volume `worko-data` (SQLite at `/data/worko.db`) — it survives container removal.
+- After editing `.env`, run `podman compose up -d` to rebuild.
 
 ---
 
-## 🌐 让别的机器连进来
+## 🌐 Connect from another machine
 
-hub 已绑 `0.0.0.0:8080`，所以**宿主机的地址**就能连。三种场景：
+The hub binds to `0.0.0.0:8080`, so the **host machine's address** is all you need. Three common setups:
 
-| 场景 | 怎么做 | 客户端 `~/.worko/config` 填 |
+| Scenario | What to do | Set in client `~/.worko/config` |
 |---|---|---|
-| **同一局域网 / WiFi** | 查宿主机 LAN IP（mac: `ipconfig getifaddr en0`），放行系统防火墙 8080 | `WORKO_URL=http://<宿主IP>:8080` |
-| **云服务器** | 任意 VPS `podman compose up -d`，安全组/防火墙放行 8080 | `WORKO_URL=http://<VPS_IP>:8080` |
-| **不想折腾网络** | `cloudflared tunnel --url http://localhost:8080` 或 Tailscale | 用隧道给的 URL |
+| **Same LAN / Wi-Fi** | Find the host's LAN IP (mac: `ipconfig getifaddr en0`), open port 8080 in the system firewall | `WORKO_URL=http://<host-IP>:8080` |
+| **Cloud server** | Run `podman compose up -d` on any VPS, open port 8080 in the security group | `WORKO_URL=http://<VPS_IP>:8080` |
+| **Skip the networking** | `cloudflared tunnel --url http://localhost:8080` or Tailscale | Use the tunnel URL |
 
-两边 `WORKO_TOKEN` 必须一致。客户端 `http://` 会自动推导 `ws://`，`https://` 推导 `wss://`。
+Both sides must share the same `WORKO_TOKEN`. The client auto-derives `ws://` from `http://` and `wss://` from `https://`.
 
 > [!WARNING]
-> 一上公网**必须**设难猜的 `WORKO_TOKEN`（改 `.env`）。绝不裸奔。
+> Once exposed to the internet you **must** set a hard-to-guess `WORKO_TOKEN` (edit `.env`). Never leave it unprotected.
 
 ---
 
-## 🔌 端点
+## 🔌 Endpoints
 
-详见 [PROTOCOL.md](PROTOCOL.md)。简表：
+See [PROTOCOL.md](PROTOCOL.md) for full details. Quick reference:
 
-| 方法 | 路径 | 作用 | 鉴权 |
+| Method | Path | Purpose | Auth |
 |---|---|---|:---:|
-| `GET` | `/health` | 健康检查 | |
-| `POST` | `/messages` | 发消息（存 + 写 okf_log + 推 wake） | 🔑 |
-| `GET` | `/context?thread=:id` | 唤起 agent 时喂的那一小段 | 🔑 |
-| `GET` | `/agents` | 名册 + 在线状态 | 🔑 |
-| `GET` | `/inbox?id=:id` | 还 `waiting_for` 我的 thread（重连补同步） | 🔑 |
-| `GET` | `/threads/:id` | 某话题全部消息 + okf_log | 🔑 |
-| `POST` | `/threads/:id/resolve` | 结束话题 | 🔑 |
-| `WS` | `/?id=<谁>&token=<口令>` | 实时：收 `event:wake` / presence | 🔑 |
+| `GET` | `/health` | Health check | |
+| `POST` | `/messages` | Send a message (store + write okf_log + push wake) | 🔑 |
+| `GET` | `/context?thread=:id` | Context slice fed to agent on wake | 🔑 |
+| `GET` | `/agents` | Roster + online status | 🔑 |
+| `GET` | `/inbox?id=:id` | Threads still `waiting_for` me (reconnect sync) | 🔑 |
+| `GET` | `/threads/:id` | All messages + okf_log for a thread | 🔑 |
+| `POST` | `/threads/:id/resolve` | Close a thread | 🔑 |
+| `WS` | `/?id=<who>&token=<secret>` | Real-time: receive `event:wake` / presence | 🔑 |
 
 ---
 
-## 📦 拆成独立仓库
+## 📦 Use as a standalone repo
 
-这个文件夹**自包含**：直接在这里 `git init` 就能作为独立部署仓推上去。
+This folder is **self-contained**: run `git init` here and push it as an independent deployment repo.
 
 ---
 
 <div align="center">
 
-用 [Apache 2.0](LICENSE) 协议开源 · 由 **CAgGen** 维护
+Open-sourced under [Apache 2.0](LICENSE) · Maintained by **CAgGen**
 
 </div>

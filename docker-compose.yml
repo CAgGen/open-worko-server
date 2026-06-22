@@ -1,4 +1,4 @@
-# 一条 `podman compose up -d` 起整个 hub。开发=测试=部署同一个镜像。
+# One `podman compose up -d` brings up the entire hub. Dev = test = production — same image.
 services:
   worko-server:
     build:
@@ -9,11 +9,11 @@ services:
       - "8080:8080"
     volumes:
       - worko-data:/data
-      - ./dashboard/dist:/app/dashboard/dist:ro   # 挂载构建好的 dashboard
+      - ./dashboard/dist:/app/dashboard/dist:ro   # mount the pre-built dashboard
     environment:
       - PORT=8080
       - DB_PATH=/data/worko.db
-      - WORKO_ADMIN_TOKEN=${WORKO_ADMIN_TOKEN:-change-me}   # 必须改！
+      - WORKO_ADMIN_TOKEN=${WORKO_ADMIN_TOKEN:-change-me}   # must be changed!
       - PUBLIC_DIR=/app/dashboard/dist
     restart: unless-stopped
 

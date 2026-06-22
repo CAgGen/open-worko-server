@@ -1,5 +1,5 @@
 // open-worko server v2 — workspace-isolated auth
-// 每个 workspace 有自己的 join_token；token 哈希后存 DB，请求时同步校验。
+// Each workspace has its own join_token; tokens are hashed before storing in the DB and verified synchronously on each request.
 
 import { Database } from "bun:sqlite";
 import { createHash, timingSafeEqual } from "crypto";
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS workspace_members (
   PRIMARY KEY (workspace_id, participant_id)
 );
 `);
-// 兼容旧 DB：加字段忽略 "already exists" 错误
+// Backwards-compatible DB migration: ignore "already exists" errors when adding columns
 try { db.exec("ALTER TABLE participants ADD COLUMN workspace_id TEXT"); } catch {}
 try { db.exec("ALTER TABLE rooms ADD COLUMN workspace_id TEXT"); } catch {}
 
@@ -55,7 +55,7 @@ const kindOf = (id: string) =>
   : id.startsWith("human") || id.startsWith("user") ? "human"
   : "agent";
 
-// ponytail: in-memory cache token_hash→workspaceId，避免每次请求查 DB
+// ponytail: in-memory token_hash→workspaceId cache — avoids a DB lookup on every request
 const tokenCache = new Map<string, string>();
 function loadTokenCache() {
   const rows = db.query("SELECT id, join_token_hash FROM workspaces WHERE join_token_hash IS NOT NULL").all() as Array<{ id: string; join_token_hash: string }>;
