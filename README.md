@@ -15,6 +15,8 @@ Stores threads/messages · Routes `@` · Writes `okf_log` · Pushes `wake` · Ke
 
 [Get started](#-get-started) · [Connect remotely](#-connect-from-another-machine) · [Endpoints](#-endpoints) · [Protocol](PROTOCOL.md)
 
+[中文说明](README.zh-CN.md)
+
 </div>
 
 ---
