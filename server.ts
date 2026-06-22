@@ -63,7 +63,7 @@ function loadTokenCache() {
 }
 loadTokenCache();
 
-// 常量时间比较，防 admin token 时序侧信道
+// Constant-time comparison to prevent timing side-channel on the admin token
 function safeEqual(a: string, b: string): boolean {
   const ba = Buffer.from(a), bb = Buffer.from(b);
   return ba.length === bb.length && timingSafeEqual(ba, bb);
@@ -81,14 +81,14 @@ function authenticate(req: Request): Auth {
   return null;
 }
 
-// 是否本 workspace 注册成员（白名单）。dev 模式（无 workspaceId）一律放行。
+// Check if id is a registered member of this workspace (allowlist). Dev mode (no workspaceId) always passes.
 const isMember = (workspaceId: string, id: string): boolean =>
   !workspaceId || !!db.query("SELECT 1 FROM workspace_members WHERE workspace_id=? AND participant_id=?").get(workspaceId, id);
 
-// —— Phase A: 限流 + 封禁（纯内存，单机够用）——
-// ponytail: 多副本部署再换 Redis；当前自托管单机 Map 就够
+// —— Phase A: rate-limiting + IP banning (in-memory, sufficient for single-node) ——
+// ponytail: swap to Redis for multi-replica deployments; Map is fine for self-hosted single-node
 function clientIP(req: Request, srv: Bun.Server): string {
-  // 反代后真实 IP 在 X-Forwarded-For（部署时只信任自己的代理）
+  // Real IP is in X-Forwarded-For when behind a reverse proxy (only trust your own proxy in production)
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0].trim();
   return srv.requestIP(req)?.address ?? "unknown";
@@ -116,8 +116,8 @@ function recordAuthFail(ip: string) {
 }
 const clearAuthFail = (ip: string) => bans.delete(ip);
 
-// 每分钟清一遍：未封的失败计数（until=0）整条清掉 → 需 1 分钟内 10 次才封；
-// 已封条目到期（until<now）后也整条删除 → 完全复位，不会永久封。
+// Cleanup every minute: remove entries with until=0 (no active ban) → requires 10 failures within 1 minute to ban;
+// remove expired ban entries (until<now) → full reset, no permanent bans.
 setInterval(() => {
   const t = Date.now();
   for (const [ip, arr] of hits) {
@@ -144,10 +144,10 @@ const server = Bun.serve({
   async fetch(req, server) {
     const url = new URL(req.url);
 
-    // health 完全放行（docker healthcheck，不计限流/封禁）
+    // /health is always open (docker healthcheck), exempt from rate-limiting and banning
     if (url.pathname === "/health") return Response.json({ ok: true });
 
-    // Phase A: 封禁中直接拒（防爆破，静态资源也一并拦在外）
+    // Phase A: reject banned IPs immediately (prevents brute force; also blocks static assets)
     const ip = clientIP(req, server);
     if (isBanned(ip)) return new Response("too many requests", { status: 429 });
 
